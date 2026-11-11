@@ -1,0 +1,13 @@
+{
+  "name": "repo-command-center",
+  "private": true,
+  "type": "module",
+  "description": "Front-end tests for Repo Command Center. No dependencies: uses Node's built-in test runner and coverage.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test \"tests/js/*.test.js\"",
+    "coverage": "node --test --experimental-test-coverage --test-coverage-include=\"static/js/**\" --test-coverage-exclude=\"static/js/{main,dashboard,popover,help}.js\" --test-coverage-lines=95 --test-coverage-branches=90 --test-coverage-functions=95 \"tests/js/*.test.js\""
+  }
+}
