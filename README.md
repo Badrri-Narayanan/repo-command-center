@@ -198,11 +198,47 @@ The server executes git commands, so it's locked down:
 ## Project layout
 
 ```
-server.py     HTTP server, git operations, tool detection (Python stdlib)
-index.html    The whole UI: HTML, CSS and JS in one file
-docs/         README assets
+server.py            HTTP server, git operations, tool detection (Python stdlib)
+index.html           Page markup and the in-app guide
+static/app.css       Styles (light + dark theme via prefers-color-scheme)
+static/app.js        UI logic: rendering, filters, bulk operations, popovers
+tests/test_server.py Test suite (unittest + real temporary git repos)
+docs/                README assets
 ```
+
+## Testing
+
+The tests use only the standard library. Each test builds real throwaway git repos (a bare "remote",
+a clone, and a second clone that pushes upstream commits), so pull, switch, stash, prune, conflicts and
+worktrees are exercised against real git, not mocks. Your own git config is ignored during the run.
+
+```bash
+python3 -m unittest discover -s tests -v
+```
+
+Coverage (currently **100% line and branch** for `server.py`; the build fails below 95%):
+
+```bash
+# with uv: nothing to install globally
+uv run --with coverage coverage run -m unittest discover -s tests
+uv run --with coverage coverage report        # or: coverage html → htmlcov/index.html
+
+# or with pip
+pip install coverage && coverage run -m unittest discover -s tests && coverage report
+```
+
+| Area | What's covered |
+|---|---|
+| Git status | Clean, dirty (staged/unstaged/untracked), ahead/behind, detached HEAD, merge conflicts, stashes, empty and broken repos |
+| Operations | Fetch, ff-only pull (incl. diverged → error), switch/checkout (invalid names, remote-only branches, dirty → skipped), morning sync short-circuiting, stash round-trip, prune merged-only |
+| Discovery | Depth, nested repos, skipped folders, worktrees, app folder excluded, unknown/traversal repo ids |
+| Tools | Per-platform detection (macOS/Linux/Windows via mocks), config add/override/hide, invalid config |
+| HTTP API | Token + Host checks, static whitelist and path traversal, every route, 400/401/403/404/500 |
+| CLI | Port fallback, `--no-browser`, bad folder, git missing |
+
+The front end (`static/app.js`) is checked by hand in a browser; it has no automated tests yet.
 
 ## Contributing
 
 Issues and PRs are welcome. Keep the zero-dependency rule: standard-library Python and vanilla JS only.
+Run the tests before opening a PR.
