@@ -1,12 +1,14 @@
 # ⌘ Repo Command Center
 
+[![CI](https://github.com/Badrri-Narayanan/repo-command-center/actions/workflows/ci.yml/badge.svg)](https://github.com/Badrri-Narayanan/repo-command-center/actions/workflows/ci.yml)
+
 **One dashboard for every git repo in a folder.** See which repos are behind, dirty, or on the wrong
 branch at a glance, then pull, switch, stash, or open them in your editor, one at a time or dozens at once.
 
 ![Repo Command Center showing nine repositories as tiles with branch, status badges and actions](docs/screenshot.png)
 
-- **Zero install:** Python standard library only. Two files, no `pip`, no `npm`, no build step.
-- **Cross-platform:** macOS, Linux and Windows. Needs Python 3.8+ and git.
+- **Zero install:** Python standard library and vanilla JS only. No `pip`, no `npm install`, no build step.
+- **Cross-platform:** macOS, Linux and Windows (tested on all three in CI). Needs Python 3.9+ and git.
 - **Fast:** status for ~100 repos loads in about 1.5 seconds.
 - **Safe by default:** fast-forward-only pulls, never deletes unmerged work, never hangs on a password prompt.
 
@@ -152,14 +154,15 @@ Add, relabel or hide tools in `~/.repo-command-center.json`:
 ### Changing the "uncommitted changes" policy
 
 When a switch or Morning sync hits a repo with uncommitted tracked changes, that repo is **skipped** and
-the reason is shown on its tile. To auto-stash instead, edit `before_switch()` at the top of `server.py`.
-Its docstring has a ready-made example.
+the reason is shown on its tile. The rule lives in `SwitchPolicy` (`rcc/policy.py`). To auto-stash
+instead, subclass it (the docstring has a ready-made `AutoStashPolicy`) and pass it to `Operations` in
+`rcc/cli.py`.
 
 ## How it works
 
 ```
-┌──────────────── browser ────────────────┐        ┌──────────── server.py ────────────┐
-│ index.html (vanilla JS, no CDN)         │  HTTP  │ ThreadingHTTPServer on 127.0.0.1  │
+┌──────────────── browser ────────────────┐        ┌───────────── rcc/ ────────────────┐
+│ static/js (ES modules, no CDN)          │  HTTP  │ ThreadingHTTPServer on 127.0.0.1  │
 │ • one status request per repo (×10)     │ ─────▶ │ • GET  /api/repos, /api/status,   │
 │ • one op request per repo (×6) so each  │ ◀───── │        /api/branches              │
 │   tile gets its own spinner + result    │  JSON  │ • POST /api/op, /api/root         │
@@ -172,6 +175,32 @@ Its docstring has a ready-made example.
 - The server is stateless: each request names one repo and one operation. Bulk work is fanned out by
   the browser, which is what gives per-tile progress for free.
 - Settings like pins, sort and recent folders live in your browser's `localStorage`.
+
+### Code structure
+
+Both halves are small single-purpose classes with their dependencies passed in, so tests can hand
+in fakes (a fake OS, git runner, launcher, `fetch` or storage) instead of patching globals.
+
+| Python (`rcc/`) | Responsibility |
+|---|---|
+| `gitcmd.py` | `Git` runs git non-interactively → `GitResult` |
+| `repository.py` | `Repository` (one repo's queries), `RepoStatus`, `PorcelainParser`, `Commit`, `web_url()` |
+| `workspace.py` | `Workspace`: the managed folder, repo discovery (depth, skips), changing folder |
+| `operations.py` | `Operations`: fetch, pull, switch, checkout, sync, stash, prune, open → `OpResult` |
+| `policy.py` | `SwitchPolicy`: what to do with uncommitted work before switching |
+| `openers.py` | `Platform` (what's installed), `Opener`, `OpenerRegistry` (+ config overrides) |
+| `web.py` | `App` (the API, HTTP-agnostic), `RequestHandler`, `StaticAssets`, `make_server()` |
+| `cli.py` | Argument parsing, wiring, startup banner |
+
+| JavaScript (`static/js/`) | Responsibility | Unit tested |
+|---|---|---|
+| `model.js` | `RepoStore` (all UI state), filters, attention score, sorting | ✓ |
+| `runner.js` | `OperationRunner`: loads statuses, runs ops with limited concurrency, tallies | ✓ |
+| `api.js` | `ApiClient`: token-authenticated calls to the server | ✓ |
+| `view.js` | Pure functions that build HTML (tiles, badges, menus, log entries) | ✓ |
+| `forge.js` | GitHub / GitLab / Bitbucket links | ✓ |
+| `util.js` | Escaping, time-ago, concurrency pool, `Prefs` (localStorage) | ✓ |
+| `dashboard.js`, `popover.js`, `help.js`, `main.js` | DOM wiring and events | browser-checked |
 
 ## Security
 
@@ -198,25 +227,34 @@ The server executes git commands, so it's locked down:
 ## Project layout
 
 ```
-server.py            HTTP server, git operations, tool detection (Python stdlib)
-index.html           Page markup and the in-app guide
-static/app.css       Styles (light + dark theme via prefers-color-scheme)
-static/app.js        UI logic: rendering, filters, bulk operations, popovers
-tests/test_server.py Test suite (unittest + real temporary git repos)
-docs/                README assets
+server.py              Launcher (python3 server.py ...)
+rcc/                   Python package: the server (see "Code structure")
+index.html             Page markup and the in-app guide
+static/css/app.css     Styles (light + dark theme via prefers-color-scheme)
+static/js/             ES modules: model, runner, api, view, forge, util + DOM wiring
+tests/test_*.py        Python tests (unittest + real temporary git repos)
+tests/js/*.test.js     JavaScript tests (node:test)
+.github/workflows/     CI: Python on Linux/macOS/Windows × 3.9/3.13, JS on Node 22
+package.json           Only declares ES modules and test scripts. No dependencies
+docs/                  README assets
 ```
 
 ## Testing
 
-The tests use only the standard library. Each test builds real throwaway git repos (a bare "remote",
-a clone, and a second clone that pushes upstream commits), so pull, switch, stash, prune, conflicts and
-worktrees are exercised against real git, not mocks. Your own git config is ignored during the run.
+Both suites use only built-in tooling: `unittest` for Python, `node:test` for JavaScript. Every push and
+pull request runs them in GitHub Actions (badge at the top).
+
+### Python
+
+Git-facing tests build real throwaway repos (a bare "remote", a clone, and a second clone that pushes
+upstream commits), so pull, switch, stash, prune, conflicts and worktrees run against real git. Your own
+git config is ignored during the run. Everything else uses injected fakes.
 
 ```bash
 python3 -m unittest discover -s tests -v
 ```
 
-Coverage (currently **100% line and branch** for `server.py`; the build fails below 95%):
+Coverage (currently **100% line and branch** for `rcc/`; the build fails below 95%):
 
 ```bash
 # with uv: nothing to install globally
@@ -229,16 +267,27 @@ pip install coverage && coverage run -m unittest discover -s tests && coverage r
 
 | Area | What's covered |
 |---|---|
-| Git status | Clean, dirty (staged/unstaged/untracked), ahead/behind, detached HEAD, merge conflicts, stashes, empty and broken repos |
+| Git status | Porcelain parsing in isolation, then clean, dirty, ahead/behind, detached HEAD, merge conflicts, stashes, empty and broken repos |
 | Operations | Fetch, ff-only pull (incl. diverged → error), switch/checkout (invalid names, remote-only branches, dirty → skipped), morning sync short-circuiting, stash round-trip, prune merged-only |
 | Discovery | Depth, nested repos, skipped folders, worktrees, app folder excluded, unknown/traversal repo ids |
-| Tools | Per-platform detection (macOS/Linux/Windows via mocks), config add/override/hide, invalid config |
+| Tools | Per-platform detection via a fake `Platform` (macOS/Linux/Windows), config add/override/hide, invalid config |
 | HTTP API | Token + Host checks, static whitelist and path traversal, every route, 400/401/403/404/500 |
 | CLI | Port fallback, `--no-browser`, bad folder, git missing |
 
-The front end (`static/app.js`) is checked by hand in a browser; it has no automated tests yet.
+### JavaScript
+
+```bash
+npm test             # or: node --test "tests/js/*.test.js"
+npm run coverage     # fails below 95% lines / 90% branches / 95% functions
+```
+
+Requires Node 22+; there's nothing to `npm install`. The logic modules are at **100% line coverage**:
+filters, sorting and pinning, chip counts, select-all state, op labels, the concurrency pool, API errors,
+confirm-before-destructive, per-repo tallies, and HTML output (including escaping of hostile repo and
+branch names). The DOM wiring (`dashboard.js`, `popover.js`, `help.js`) is kept thin and checked in a
+browser.
 
 ## Contributing
 
 Issues and PRs are welcome. Keep the zero-dependency rule: standard-library Python and vanilla JS only.
-Run the tests before opening a PR.
+Run both test suites before opening a PR. CI runs them on every push and pull request.
