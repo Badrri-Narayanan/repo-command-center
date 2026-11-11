@@ -401,6 +401,14 @@ OPS = {
 }
 
 
+# Front-end assets, served without the token (they contain no secrets). A fixed
+# whitelist, so request paths can never reach other files on disk.
+STATIC_FILES = {
+    "/static/app.css": "text/css; charset=utf-8",
+    "/static/app.js": "text/javascript; charset=utf-8",
+}
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "RepoCommandCenter/1.0"
 
@@ -440,6 +448,8 @@ class Handler(BaseHTTPRequestHandler):
         if u.path in ("/", "/index.html"):
             html = (HERE / "index.html").read_text().replace("__RCC_TOKEN__", TOKEN)
             return self._send(200, html.encode(), "text/html; charset=utf-8")
+        if u.path in STATIC_FILES:
+            return self._send(200, (HERE / u.path.lstrip("/")).read_bytes(), STATIC_FILES[u.path])
         if not self._authed():
             return self._send(401, {"error": "unauthorized"})
         repo = (parse_qs(u.query).get("repo") or [""])[0]
