@@ -45,6 +45,7 @@ const SORTS = {
 export const OP_LABELS = {
   fetch: "Fetch", pull: "Pull", switch_default: "Switch to default", checkout: "Checkout",
   sync: "Morning sync", stash: "Stash", stash_pop: "Stash pop", prune_merged: "Prune merged branches",
+  stash_apply: "Stash apply", stash_drop: "Stash drop",
 };
 
 /** All UI state: repos and their status, selection, pins, filter, search and sort. */

@@ -87,7 +87,23 @@ Each tile also shows the last commit (message, author, age) and **when the repo 
 - **Branch ▾:** searchable picker of local and remote branches, newest first
 - **Open in** VS Code, Cursor, IntelliJ, plus your file manager and terminal (only installed tools are shown)
 - **GH / GL / BB:** open the repo on GitHub, GitLab or Bitbucket, with links to PRs/MRs, CI, and *open a PR for this branch*
-- **⋯ menu:** stash (incl. untracked), pop stash, prune merged branches, copy path, refresh
+- **Log:** open the inspector (history, changes, stashes, tags; see below)
+- **⋯ menu:** stash (incl. untracked), pop stash, prune merged branches, inspector tabs, copy path, refresh
+
+### Inspector: history, changes, stashes and tags
+
+Click **Log** on a tile (or its last-commit line, or a badge) to open a read-only inspector for that repo:
+
+| Tab | What you see |
+|---|---|
+| **History** | Commit log with branch and tag labels. Switch between *This branch*, *All branches*, **↓ Incoming** (exactly what Pull will bring in) and **↑ Outgoing** (unpushed). Filter by author from a picker (you're first, as *Me*) or by clicking any author's name; search messages (matches highlighted) or `@name` for authors, and combine the two. Each commit shows its full diff, with *Copy hash*, *Copy diff* and *Open on web* |
+| **Changes** | Conflicted, staged, unstaged and untracked files, each with its diff. **View file** shows the whole file, read-only |
+| **Stashes** | Every stash entry and its contents (including stashed untracked files). **Apply** keeps the entry; **Drop** asks first |
+| **Tags** | Newest first, annotated or lightweight, with the tagged commit. The latest tag reachable from HEAD is marked |
+
+Badges are shortcuts: `↓` opens incoming commits, `↑` unpushed ones, `±`/`?`/`⚠` the changes, `⧉` the stashes.
+In the inspector, `j`/`k` (or arrows) move through the list and `1`–`4` switch tabs. Apart from stash
+Apply/Drop, nothing in the inspector changes the repo.
 
 ### Group operations
 
@@ -123,6 +139,7 @@ They combine with search (which also matches branch names) and **All visible**:
 | `Esc` | Close popup → leave search → clear selection |
 | `r` | Refresh status (local only, no network) |
 | `?` | Open the in-app guide |
+| `j` / `k`, `/`, `1`–`4` | In the inspector: next / previous item, search, switch tab |
 
 ## Configuration
 
@@ -164,8 +181,11 @@ instead, subclass it (the docstring has a ready-made `AutoStashPolicy`) and pass
 ┌──────────────── browser ────────────────┐        ┌───────────── rcc/ ────────────────┐
 │ static/js (ES modules, no CDN)          │  HTTP  │ ThreadingHTTPServer on 127.0.0.1  │
 │ • one status request per repo (×10)     │ ─────▶ │ • GET  /api/repos, /api/status,   │
-│ • one op request per repo (×6) so each  │ ◀───── │        /api/branches              │
-│   tile gets its own spinner + result    │  JSON  │ • POST /api/op, /api/root         │
+│ • one op request per repo (×6) so each  │ ◀───── │        /api/branches, read-only   │
+│   tile gets its own spinner + result    │  JSON  │        /api/log, authors, commit, │
+│ • inspector: read-only views per repo   │        │        changes, diff, file, stash,│
+│                                         │        │        stashes, tags              │
+│                                         │        │ • POST /api/op, /api/root         │
 └─────────────────────────────────────────┘        │ • runs `git -C <repo> …` per call │
                                                    └───────────────────────────────────┘
 ```
@@ -184,6 +204,7 @@ in fakes (a fake OS, git runner, launcher, `fetch` or storage) instead of patchi
 | Python (`rcc/`) | Responsibility |
 |---|---|
 | `gitcmd.py` | `Git` runs git non-interactively → `GitResult` |
+| `explorer.py` | `Explorer`: read-only log, commit, changes, diff, file, stashes, tags (input-validated, size-capped) |
 | `repository.py` | `Repository` (one repo's queries), `RepoStatus`, `PorcelainParser`, `Commit`, `web_url()` |
 | `workspace.py` | `Workspace`: the managed folder, repo discovery (depth, skips), changing folder |
 | `operations.py` | `Operations`: fetch, pull, switch, checkout, sync, stash, prune, open → `OpResult` |
@@ -199,8 +220,10 @@ in fakes (a fake OS, git runner, launcher, `fetch` or storage) instead of patchi
 | `api.js` | `ApiClient`: token-authenticated calls to the server | ✓ |
 | `view.js` | Pure functions that build HTML (tiles, badges, menus, log entries) | ✓ |
 | `forge.js` | GitHub / GitLab / Bitbucket links | ✓ |
+| `diff.js` | Unified-diff parser, porcelain grouping | ✓ |
+| `inspector-view.js` | Pure HTML for the inspector (lists, commit detail, diffs, file view) | ✓ |
 | `util.js` | Escaping, time-ago, concurrency pool, `Prefs` (localStorage) | ✓ |
-| `dashboard.js`, `popover.js`, `help.js`, `main.js` | DOM wiring and events | browser-checked |
+| `dashboard.js`, `inspector.js`, `popover.js`, `help.js`, `main.js` | DOM wiring and events | browser-checked |
 
 ## Security
 
@@ -212,6 +235,8 @@ The server executes git commands, so it's locked down:
 - The **`Host` header is checked**, which blocks DNS-rebinding attacks.
 - Commands run **without a shell**, with arguments as lists. Branch names are validated with
   `git check-ref-format`, and repo names must match a discovered repo (no path traversal).
+- Inspector endpoints only accept commit hashes (never ref names that could be read as options), diff only
+  files git reports as changed, refuse working-tree paths outside the repo, and cap diff and file sizes.
 - Git runs with `GIT_TERMINAL_PROMPT=0` and SSH `BatchMode`, so it fails fast instead of waiting for credentials.
 
 ## Troubleshooting

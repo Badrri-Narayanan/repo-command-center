@@ -35,13 +35,14 @@ class Git:
         self._runner = runner
         self._timeout = timeout
 
-    def run(self, repo: Path, *args: str) -> GitResult:
+    def run(self, repo: Path, *args: str, raw: bool = False) -> GitResult:
+        """`raw` keeps stdout exactly as git wrote it (file contents, -z output); otherwise it is stripped."""
         try:
             done = self._runner(["git", "-C", str(repo), *args], capture_output=True, text=True,
                                 encoding="utf-8", errors="replace", timeout=self._timeout, env=self.env())
         except subprocess.TimeoutExpired:
             return GitResult(self.TIMEOUT_EXIT_CODE, "", f"timed out after {self._timeout}s")
-        return GitResult(done.returncode, done.stdout.strip(), done.stderr.strip())
+        return GitResult(done.returncode, done.stdout if raw else done.stdout.strip(), done.stderr.strip())
 
     def succeeds(self, repo: Path, *args: str) -> bool:
         return self.run(repo, *args).ok

@@ -125,6 +125,38 @@ class TestHttpApi(unittest.TestCase):
         status, data = self.call("GET", "/api/branches?repo=svc")
         self.assertEqual((status, data["current"]), (200, "main"))
 
+    def test_explorer_routes(self):
+        path = self.fx.root / "svc"
+        (path / "README.md").write_text("changed\n")
+        git(path, "tag", "v9")
+        try:
+            status, log = self.call("GET", "/api/log?repo=svc&range=all&limit=5")
+            self.assertEqual((status, log["commits"][0]["subject"]), (200, "initial"))
+            rev = log["commits"][0]["hash"]
+            self.assertEqual(self.call("GET", f"/api/commit?repo=svc&rev={rev}")[1]["files"][0]["path"], "README.md")
+            self.assertEqual(self.call("GET", "/api/changes?repo=svc")[1]["files"][0]["path"], "README.md")
+            self.assertIn("+changed", self.call("GET", "/api/diff?repo=svc&path=README.md&staged=0")[1]["patch"])
+            self.assertEqual(self.call("GET", "/api/file?repo=svc&path=README.md&rev=HEAD")[1]["content"], "hello\n")
+            self.assertEqual(self.call("GET", "/api/tags?repo=svc")[1]["tags"][0]["name"], "v9")
+            author = self.call("GET", "/api/authors?repo=svc")[1]["authors"][0]
+            self.assertEqual(self.call("GET", f"/api/log?repo=svc&author={author['email']}")[1]["commits"][0]["hash"], rev)
+            git(path, "stash", "push", "-q")
+            self.assertEqual(self.call("GET", "/api/stashes?repo=svc")[1]["stashes"][0]["index"], 0)
+            self.assertIn("+changed", self.call("GET", "/api/stash?repo=svc&index=0")[1]["patch"])
+            status, data = self.call("POST", "/api/op", {"op": "stash_drop", "repo": "svc", "index": 0})
+            self.assertEqual((status, data["result"], data["status"]["stashes"]), (200, "ok", 0))
+        finally:
+            git(path, "checkout", "-q", "--", ".")
+            git(path, "tag", "-d", "v9")
+
+    def test_explorer_routes_reject_bad_input(self):
+        self.assertEqual(self.call("GET", "/api/commit?repo=svc&rev=--all")[0], 400)
+        self.assertEqual(self.call("GET", "/api/log?repo=svc&range=nope")[0], 400)
+        self.assertEqual(self.call("GET", "/api/log?repo=svc&author=%3Cx%3E")[0], 400)
+        self.assertEqual(self.call("GET", "/api/file?repo=svc&path=../../etc/passwd")[0], 404)
+        self.assertEqual(self.call("GET", "/api/diff?repo=svc&path=README.md")[0], 404)
+        self.assertEqual(self.call("GET", "/api/log?repo=../x")[0], 404)
+
     def test_unknown_routes_and_repos(self):
         self.assertEqual(self.call("GET", "/api/nope")[0], 404)
         self.assertEqual(self.call("GET", "/api/status?repo=../../etc")[0], 404)

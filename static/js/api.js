@@ -19,6 +19,13 @@ export class ApiClient {
     return this.request(`/api/branches?repo=${encodeURIComponent(name)}`);
   }
 
+  /** Read-only repo views: log, commit, changes, diff, file, stashes, stash, tags. */
+  explore(view, name, params = {}) {
+    const query = new URLSearchParams({ repo: name });
+    Object.entries(params).forEach(([key, value]) => { if (value !== undefined && value !== null) query.set(key, value); });
+    return this.request(`/api/${view}?${query}`);
+  }
+
   runOp(op, repo, extra = {}) {
     return this.request("/api/op", { op, repo, ...extra });
   }

@@ -26,6 +26,17 @@ describe("tileHTML", () => {
     assert.match(html, /→ main/);
   });
 
+  it("links badges, the commit line and the Log button to the inspector", () => {
+    const store = makeStore([repo("svc", { behind: 2, ahead: 1, unstaged: 1, untracked: 1, stashes: 1, conflicts: 1 })]);
+    const html = view.tileHTML(store.get("svc"), store);
+    for (const target of ["history:incoming", "history:outgoing", "changes", "stashes", "history"]) {
+      assert.match(html, new RegExp(`data-inspect="${target}"`));
+    }
+    assert.match(html, /data-inspect="history"[^>]*>Log</);
+    assert.match(view.moreMenuHTML([], store.get("svc")), /data-inspect="tags"/);
+    assert.doesNotMatch(view.moreMenuHTML([], null), /data-inspect/);
+  });
+
   it("escapes repo data so it cannot inject markup", () => {
     const evil = repo(`<img src=x onerror=alert(1)>`, { branch: `"><script>`, commit: { hash: "h", subject: "<b>", author: "a", rel: "now", ts: 1 } });
     const store = makeStore([evil]);

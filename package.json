@@ -8,6 +8,6 @@
   },
   "scripts": {
     "test": "node --test \"tests/js/*.test.js\"",
-    "coverage": "node --test --experimental-test-coverage --test-coverage-include=\"static/js/**\" --test-coverage-exclude=\"static/js/{main,dashboard,popover,help}.js\" --test-coverage-lines=95 --test-coverage-branches=90 --test-coverage-functions=95 \"tests/js/*.test.js\""
+    "coverage": "node --test --experimental-test-coverage --test-coverage-include=\"static/js/**\" --test-coverage-exclude=\"static/js/{main,dashboard,popover,help,inspector}.js\" --test-coverage-lines=95 --test-coverage-branches=90 --test-coverage-functions=95 \"tests/js/*.test.js\""
   }
 }

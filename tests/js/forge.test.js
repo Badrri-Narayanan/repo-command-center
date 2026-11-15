@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
-import { forgeFor, forgeLinks } from "../../static/js/forge.js";
+import { forgeFor, forgeLinks, forgeObjectUrl } from "../../static/js/forge.js";
 
 describe("forgeFor", () => {
   it("recognises GitHub, GitLab and Bitbucket hosts", () => {
@@ -35,5 +35,15 @@ describe("forgeLinks", () => {
   it("omits branch links on a detached HEAD", () => {
     const labels = forgeLinks("https://github.com/acme/api", null).map(link => link.label);
     assert.deepEqual(labels, ["Pull requests", "Actions"]);
+  });
+});
+
+describe("forgeObjectUrl", () => {
+  it("links commits and tags on known forges only", () => {
+    assert.equal(forgeObjectUrl("https://github.com/a/b", "commit", "abc"), "https://github.com/a/b/commit/abc");
+    assert.equal(forgeObjectUrl("https://gitlab.com/a/b", "tag", "v1/x"), "https://gitlab.com/a/b/-/tags/v1%2Fx");
+    assert.equal(forgeObjectUrl("https://bitbucket.org/a/b", "commit", "abc"), "https://bitbucket.org/a/b/commits/abc");
+    assert.equal(forgeObjectUrl("https://git.internal/a/b", "commit", "abc"), null);
+    assert.equal(forgeObjectUrl(null, "commit", "abc"), null);
   });
 });
