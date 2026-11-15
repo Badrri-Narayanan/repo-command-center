@@ -9,7 +9,7 @@ from .repository import FIELD_SEP, Repository
 LOG_FORMAT = FIELD_SEP.join(("%H", "%h", "%s", "%an", "%ae", "%ct", "%cr", "%D", "%P"))
 LOG_RANGES = {"head": ("HEAD",), "all": ("--all",), "incoming": ("HEAD..@{u}",), "outgoing": ("@{u}..HEAD",)}
 UPSTREAM_RANGES = ("incoming", "outgoing")
-TAG_FORMAT = FIELD_SEP.join(("%(refname:short)", "%(objecttype)", "%(objectname)", "%(*objectname)",
+TAG_FORMAT = FIELD_SEP.join(("%(refname:short)", "%(objecttype)", "%(objectname)", "%( *objectname)".replace(" ", ""),
                              "%(creatordate:unix)", "%(creatordate:relative)", "%(contents:subject)"))
 STASH_FORMAT = FIELD_SEP.join(("%gd", "%gs", "%ct", "%cr"))
 DIFF_OPTS = ("--no-color", "--no-ext-diff", "-M")
@@ -210,7 +210,8 @@ class Explorer:
             data = handle.read(self.MAX_FILE_BYTES + 1)
         if b"\0" in data[:_NUL_SNIFF_BYTES]:
             return None
-        return data.decode("utf-8", errors="replace")
+        # Match text-mode file reads on every OS: normalize Windows/legacy Mac newlines to LF.
+        return data.decode("utf-8", errors="replace").replace("\r\n", "\n").replace("\r", "\n")
 
     def stashes(self) -> dict:
         result = self.repo.run("stash", "list", f"--format={STASH_FORMAT}")
