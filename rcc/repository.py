@@ -123,8 +123,8 @@ class Repository:
     def __repr__(self) -> str:
         return f"Repository({self.name!r})"
 
-    def run(self, *args: str) -> GitResult:
-        return self.git.run(self.path, *args)
+    def run(self, *args: str, raw: bool = False) -> GitResult:
+        return self.git.run(self.path, *args, raw=raw)
 
     def status(self) -> RepoStatus:
         status = RepoStatus(name=self.name, path=str(self.path))

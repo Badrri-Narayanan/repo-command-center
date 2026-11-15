@@ -1,4 +1,5 @@
 import { HelpDialog } from "./help.js";
+import { Inspector } from "./inspector.js";
 import { Popover } from "./popover.js";
 import { OperationRunner } from "./runner.js";
 import { esc, homeRelative } from "./util.js";
@@ -24,11 +25,12 @@ export class Dashboard {
       confirm: message => confirm(message),
       notify: message => this.toast(message),
     });
+    this.inspector = new Inspector(this.els.inspector, { api, store, runner: this.runner });
   }
 
   findElements(doc) {
     const ids = ["grid", "chips", "q", "sort", "selAll", "selCount", "bulk", "root", "refreshAll", "fetchAll",
-      "popover", "toast", "logList", "logLast", "help", "helpBtn", "helpAgain"];
+      "popover", "toast", "logList", "logLast", "help", "helpBtn", "helpAgain", "inspector"];
     return Object.fromEntries(ids.map(id => [id, doc.getElementById(id)]));
   }
 
@@ -36,6 +38,7 @@ export class Dashboard {
     this.els.sort.value = this.store.sort;
     this.bindEvents();
     this.help.bind();
+    this.inspector.bind();
     this.help.openOnFirstVisit();
     this.reload();
   }
@@ -129,7 +132,8 @@ export class Dashboard {
     const item = event.target.closest("button");
     if (!item) return;
     this.popover.close();
-    const { op, copy, url } = item.dataset;
+    const { op, copy, url, inspect } = item.dataset;
+    if (inspect) return this.inspect(names[0], inspect);
     if (op === "refresh") return this.runner.refresh(names[0]);
     if (op) return this.run(op, names);
     if (copy) await this.copyPath(status.path);
@@ -201,15 +205,22 @@ export class Dashboard {
 
   onTileClick(event) {
     const tile = event.target.closest(".tile");
-    const control = event.target.closest("button, input.sel");
+    const control = event.target.closest("button, input.sel, [data-inspect]");
     if (!tile || !control) return;
     const name = tile.dataset.name;
+    if (control.dataset.inspect) return this.inspect(name, control.dataset.inspect);
     if (control.matches("input.sel")) {
       this.store.toggleSelected(name, control.checked);
       return this.updateTile(name);
     }
     if (control.dataset.op) return this.run(control.dataset.op, [name]);
     this.onTileAction(control.dataset.act, control, name);
+  }
+
+  inspect(name, target) {
+    const [tab, option] = target.split(":");
+    this.popover.close();
+    this.inspector.open(name, tab, option);
   }
 
   onTileAction(action, control, name) {
@@ -261,7 +272,7 @@ export class Dashboard {
   }
 
   onKey(event) {
-    if (this.help.isOpen) return;
+    if (this.help.isOpen || this.inspector.isOpen) return;
     const typing = event.target.matches("input, select, textarea");
     if (event.key === "Escape") return this.onEscape(event, typing);
     if (typing || event.metaKey || event.ctrlKey || event.altKey) return;

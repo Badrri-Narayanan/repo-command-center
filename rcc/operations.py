@@ -8,6 +8,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Callable, Dict, List, Optional
 
+from .explorer import Explorer
 from .gitcmd import GitResult
 from .openers import Opener, OpenerRegistry
 from .policy import SwitchPolicy
@@ -71,7 +72,8 @@ class Operations:
         self._actions: Dict[str, Action] = {
             "fetch": self.fetch, "pull": self.pull, "switch_default": self.switch_default,
             "checkout": self.checkout, "sync": self.sync, "stash": self.stash,
-            "stash_pop": self.stash_pop, "prune_merged": self.prune_merged,
+            "stash_pop": self.stash_pop, "stash_apply": self.stash_apply, "stash_drop": self.stash_drop,
+            "prune_merged": self.prune_merged,
         }
 
     def names(self) -> List[str]:
@@ -156,6 +158,15 @@ class Operations:
         if not repo.stash_count():
             return OpResult.skipped("no stash entries")
         return OpResult.from_git(repo.run("stash", "pop"), "stash popped")
+
+    def stash_apply(self, repo: Repository, body: dict) -> OpResult:
+        """Apply one stash entry and keep it (unlike pop)."""
+        ref = Explorer(repo).stash_ref(body.get("index"))
+        return OpResult.from_git(repo.run("stash", "apply", ref), f"applied {ref}")
+
+    def stash_drop(self, repo: Repository, body: dict) -> OpResult:
+        ref = Explorer(repo).stash_ref(body.get("index"))
+        return OpResult.from_git(repo.run("stash", "drop", ref), f"dropped {ref}")
 
     def prune_merged(self, repo: Repository, _body: dict = None) -> OpResult:
         default = repo.default_branch()

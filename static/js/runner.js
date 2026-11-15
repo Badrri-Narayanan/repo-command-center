@@ -1,6 +1,6 @@
 import { runPool } from "./util.js";
 
-export const CONFIRM_OPS = new Set(["stash", "stash_pop", "prune_merged"]);
+export const CONFIRM_OPS = new Set(["stash", "stash_pop", "stash_drop", "prune_merged"]);
 const STATUS_CONCURRENCY = 10;
 const OP_CONCURRENCY = 6;
 const OPEN_CONCURRENCY = 2;

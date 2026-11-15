@@ -62,4 +62,11 @@ describe("ApiClient", () => {
       globalThis.fetch = original;
     }
   });
+
+  it("builds explorer queries and drops missing params", async () => {
+    const { fetchFn, calls } = fakeFetch([{ body: { commits: [] } }]);
+    await new ApiClient("tok", fetchFn).explore("log", "org/x", { range: "all", q: "a&b", skip: 0, limit: undefined, rev: null });
+    assert.equal(calls[0].path, "/api/log?repo=org%2Fx&range=all&q=a%26b&skip=0");
+    assert.equal(calls[0].init.method, "GET");
+  });
 });

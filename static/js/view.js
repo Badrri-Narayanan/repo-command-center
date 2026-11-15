@@ -22,6 +22,7 @@ function tileHeader(status, store) {
   const pinned = store.pins.has(status.name);
   return `<header><input type="checkbox" class="sel" ${store.selected.has(status.name) ? "checked" : ""} aria-label="Select ${name}">
     <h3 title="${esc(status.path || status.name)}">${name}</h3>
+    <button class="icon" data-inspect="history" title="History, changes, stashes and tags (read-only)">Log</button>
     <button class="pin ${pinned ? "on" : ""}" data-act="pin" title="Pin to top">${pinned ? "★" : "☆"}</button></header>`;
 }
 
@@ -38,12 +39,12 @@ export function badges(status) {
   const upstream = esc(status.upstream);
   const changed = status.staged + status.unstaged;
   const list = [
-    status.conflicts && `<span class="badge err">⚠ ${status.conflicts} conflicts</span>`,
-    status.behind && `<span class="badge behind" title="Behind ${upstream}">↓ ${status.behind}</span>`,
-    status.ahead && `<span class="badge ahead" title="Ahead of ${upstream} (unpushed)">↑ ${status.ahead}</span>`,
-    changed && `<span class="badge dirty" title="${status.staged} staged, ${status.unstaged} unstaged">± ${changed}</span>`,
-    status.untracked && `<span class="badge" title="Untracked files">? ${status.untracked}</span>`,
-    status.stashes && `<span class="badge stash" title="Stash entries">⧉ ${status.stashes}</span>`,
+    status.conflicts && `<span class="badge err link" data-inspect="changes" title="Conflicted files: click to view">⚠ ${status.conflicts} conflicts</span>`,
+    status.behind && `<span class="badge behind link" data-inspect="history:incoming" title="Behind ${upstream}: click to see incoming commits">↓ ${status.behind}</span>`,
+    status.ahead && `<span class="badge ahead link" data-inspect="history:outgoing" title="Ahead of ${upstream} (unpushed): click to see them">↑ ${status.ahead}</span>`,
+    changed && `<span class="badge dirty link" data-inspect="changes" title="${status.staged} staged, ${status.unstaged} unstaged: click to view diffs">± ${changed}</span>`,
+    status.untracked && `<span class="badge link" data-inspect="changes" title="Untracked files: click to view">? ${status.untracked}</span>`,
+    status.stashes && `<span class="badge stash link" data-inspect="stashes" title="Stash entries: click to view">⧉ ${status.stashes}</span>`,
     !status.upstream && !status.detached && `<span class="badge" title="Branch has no upstream">no upstream</span>`,
   ].filter(Boolean);
   return list.length ? list : [`<span class="badge clean">✓ clean</span>`];
@@ -59,7 +60,7 @@ export function branchPill(status) {
 function commitLines(status, nowMs) {
   const commit = status.commit;
   if (!commit) return `<p class="meta">${esc(status.error || "no commits")}</p>`;
-  return `<p class="commit" title="${esc(commit.subject)}">${esc(commit.subject)}</p>
+  return `<p class="commit link" data-inspect="history" title="${esc(commit.subject)}: click for history">${esc(commit.subject)}</p>
     <p class="meta"><code>${esc(commit.hash)}</code> · ${esc(commit.author)} · ${esc(commit.rel)} · fetched ${timeAgo(status.fetchedAt, nowMs)}</p>`;
 }
 
@@ -125,7 +126,9 @@ export function moreMenuHTML(openers, status) {
 function singleRepoItems(status) {
   const links = status.web ? forgeLinks(status.web, status.branch)
     .map(link => popItem(`data-url="${esc(link.url)}"`, `${link.label} ↗`)).join("") : "";
-  return `<div class="pop-sep"></div>${popItem('data-copy="path"', "Copy path")}${links}${popItem('data-op="refresh"', "Refresh status")}`;
+  const inspect = [["history", "History"], ["changes", "Changes"], ["stashes", "Stashes"], ["tags", "Tags"]]
+    .map(([tab, label]) => popItem(`data-inspect="${tab}"`, `${label}…`, "read-only")).join("");
+  return `<div class="pop-sep"></div>${inspect}<div class="pop-sep"></div>${popItem('data-copy="path"', "Copy path")}${links}${popItem('data-op="refresh"', "Refresh status")}`;
 }
 
 export function checkoutFormHTML(count) {

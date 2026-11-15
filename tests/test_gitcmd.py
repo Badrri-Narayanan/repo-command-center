@@ -40,6 +40,10 @@ class TestGit(unittest.TestCase):
         self.assertEqual(cmd, ["git", "-C", str(Path("/repo")), "status"])
         self.assertEqual(kwargs["encoding"], "utf-8")
 
+    def test_raw_keeps_stdout_untouched(self):
+        result = Git(runner=FakeRunner(0, " M a.txt\0", " warn \n")).run(Path("."), "status", raw=True)
+        self.assertEqual(result, GitResult(0, " M a.txt\0", "warn"))
+
     def test_never_prompts_for_credentials(self):
         runner = FakeRunner()
         Git(runner=runner).run(Path("."), "fetch")

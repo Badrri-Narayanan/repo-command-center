@@ -106,8 +106,18 @@
       <tr><td><b>VS / Cu / IJ</b></td><td>Open in VS Code / Cursor / IntelliJ IDEA. Only editors installed on this machine are shown. Add others (Sublime, PyCharm, Zed…) in <code>~/.repo-command-center.json</code>; see the README.</td></tr>
       <tr><td><b>GH / GL / BB</b></td><td>Open the repo on GitHub / GitLab / Bitbucket (from the <code>origin</code> remote).</td></tr>
       <tr><td><b>⋯</b></td><td>Stash (incl. untracked), Pop stash, Prune merged branches, every installed "open in" tool (file manager, terminal…), Copy path, PR/MR and CI links, <i>Open PR for this branch</i>, Refresh status.</td></tr>
+      <tr><td><b>Log</b></td><td>Opens the read-only <b>inspector</b> for the repo (see below).</td></tr>
       <tr><td><b>☆</b></td><td>Pin a repo so it always sorts to the top (remembered in this browser).</td></tr>
     </table>
+    <h3>Inspector: history, changes, stashes, tags</h3>
+    <p>Click <b>Log</b>, the last-commit line, or a badge on a tile. Everything here is read-only except Apply/Drop on a stash.</p>
+    <table>
+      <tr><td><b>History</b></td><td>Commit log with branch/tag labels. Pick <i>This branch</i>, <i>All branches</i>, <i>↓ Incoming</i> (exactly what Pull will bring in) or <i>↑ Outgoing</i> (unpushed). Pick an author (you're listed first as <i>Me</i>) or click any author's name to see only their commits. Search messages (matches are highlighted), or type <code>@name</code> to search authors; search and author filter combine. Click a commit for its full diff, <i>Copy hash</i> and <i>Open on web</i>.</td></tr>
+      <tr><td><b>Changes</b></td><td>Conflicted, staged, unstaged and untracked files, each with its diff. <i>View file</i> shows the whole file read-only.</td></tr>
+      <tr><td><b>Stashes</b></td><td>Every stash entry with what's in it (including stashed untracked files). <i>Apply</i> restores it and keeps it; <i>Drop</i> deletes it after a confirmation.</td></tr>
+      <tr><td><b>Tags</b></td><td>Newest first, annotated or lightweight, with the tagged commit's diff. The most recent tag reachable from HEAD is marked.</td></tr>
+    </table>
+    <div class="tip">Badges are shortcuts: <span class="badge behind">↓ 3</span> opens incoming commits, <span class="badge ahead">↑ 2</span> unpushed ones, <span class="badge dirty">± 4</span> the changes, <span class="badge stash">⧉ 1</span> the stashes. In the inspector, <kbd>j</kbd>/<kbd>k</kbd> move through the list, <kbd>/</kbd> jumps to search and <kbd>1</kbd>–<kbd>4</kbd> switch tabs.</div>
     <div class="tip warn"><b>Prune merged branches</b> deletes local branches already merged into the default branch, using <code>git branch -d</code>, which refuses unmerged work. Squash-merged branches aren't detected.</div>
   </section>
 
@@ -145,6 +155,7 @@
       <tr><td><kbd>Esc</kbd></td><td>Close popup → leave search → clear selection</td></tr>
       <tr><td><kbd>r</kbd></td><td>Refresh status of all repos (local only, no network)</td></tr>
       <tr><td><kbd>?</kbd></td><td>Open this guide</td></tr>
+      <tr><td><kbd>j</kbd> / <kbd>k</kbd>, <kbd>/</kbd>, <kbd>1</kbd>–<kbd>4</kbd></td><td>In the inspector: next / previous item, search, switch tab</td></tr>
     </table>
     <p>Status also refreshes when you come back to this tab after 30+ seconds away.</p>
     <h3>Safety</h3>
@@ -157,6 +168,21 @@
   </section>
   <div class="hfoot"><label><input type="checkbox" id="helpAgain"> Don't open automatically</label><span class="spacer"></span><span>Press <kbd>?</kbd> any time</span></div>
 </dialog>
+<dialog id="inspector" class="insp" aria-labelledby="inspTitle">
+  <div class="hhead">
+    <h2 id="inspTitle"></h2><span id="inspBranch"></span>
+    <span class="spacer"></span>
+    <span class="root"><kbd>j</kbd>/<kbd>k</kbd> move · <kbd>/</kbd> search · <kbd>1</kbd>–<kbd>4</kbd> tabs</span>
+    <button class="btn" data-close>Close <kbd>Esc</kbd></button>
+  </div>
+  <div class="tabs" id="inspTabs" role="tablist"></div>
+  <div class="ibody">
+    <aside class="ilist"><div class="itools" id="inspTools"></div><div class="iitems" id="inspList"></div></aside>
+    <section class="idetail" id="inspDetail"></section>
+  </div>
+  <div class="itoast" id="inspToast" hidden></div>
+</dialog>
+
 <details id="log">
   <summary><span>▤ Activity log</span><span id="logLast"></span></summary>
   <ul id="logList"></ul>

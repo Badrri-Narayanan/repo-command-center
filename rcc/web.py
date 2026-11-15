@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Callable, Dict, Optional, Tuple
 from urllib.parse import parse_qs, urlparse
 
+from .explorer import Explorer
 from .openers import OpenerRegistry
 from .operations import Operations
 from .workspace import Workspace
@@ -70,6 +71,9 @@ class App:
     def branches(self, name: str) -> dict:
         return self.workspace.resolve(name).branches()
 
+    def explore(self, name: str) -> Explorer:
+        return Explorer(self.workspace.resolve(name))
+
     def run_op(self, body: dict) -> dict:
         action = self.operations.lookup(body.get("op"))
         repo = self.workspace.resolve(body.get("repo", ""))
@@ -111,11 +115,25 @@ class RequestHandler(BaseHTTPRequestHandler):
         self._handle_api(urlparse(self.path).path, routes)
 
     def _get_routes(self, query: dict) -> Dict[str, Route]:
-        repo = (query.get("repo") or [""])[0]
+        def arg(key: str, default: str = "") -> str:
+            return (query.get(key) or [default])[0]
+
+        repo = arg("repo")
+        explore = self.app.explore
         return {
             "/api/repos": self.app.overview,
             "/api/status": lambda: self.app.status(repo),
             "/api/branches": lambda: self.app.branches(repo),
+            "/api/log": lambda: explore(repo).log(arg("range", "head"), arg("q"), arg("skip", "0"), arg("limit") or None,
+                                                arg("author")),
+            "/api/authors": lambda: explore(repo).authors(arg("range", "head")),
+            "/api/commit": lambda: explore(repo).commit(arg("rev")),
+            "/api/changes": lambda: explore(repo).changes(),
+            "/api/diff": lambda: explore(repo).diff(arg("path"), arg("staged") == "1"),
+            "/api/file": lambda: explore(repo).file(arg("path"), arg("rev")),
+            "/api/stashes": lambda: explore(repo).stashes(),
+            "/api/stash": lambda: explore(repo).stash(arg("index")),
+            "/api/tags": lambda: explore(repo).tags(),
         }
 
     def _handle_api(self, path: str, routes: Dict[str, Route]):
